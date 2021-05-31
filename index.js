@@ -18,12 +18,13 @@ const templatesUrl = path.join(__dirname, 'templates');
 console.log('模板文件目录', templatesUrl);
 //生成文件的目录
 let outputDir = ''
-const GetOutputDir = (outputDir) => path.join(process.cwd(), outputDir);
+const GetOutputDir = (fileSub) => fileSub.replace('templates', outputDir);
 
 function IsDirectory(url) {
   return fs.lstatSync(url).isDirectory()
 }
 function ReadAllFiles(url) {
+  fs.mkdirSync(GetOutputDir(outputDir))
   //从模板中读取文件
   fs.readdir(url, (err, files) => {
     if (err) {
@@ -31,12 +32,17 @@ function ReadAllFiles(url) {
     }
     files.forEach(async file => {
       const fileSub = path.join(url, file)
-      if (!IsDirectory(fileSub)) { // 不是目录
-        const renderResult = await ejs.renderFile(fileSub)
-        console.log(222, GetOutputDir(outputDir));
-        fs.writeFileSync(GetOutputDir(outputDir), renderResult)
-      } else { // 是目录
+      const outputDir = GetOutputDir(fileSub)
+      if (IsDirectory(fileSub)) { // 是目录
+        fs.mkdirSync(outputDir)
+        console.log('fileSub', fileSub);
         ReadAllFiles(fileSub)
+      } else { // 不是目录
+        //console.log('file', fileSub);
+        //console.log('----------前', fileSub);
+        //console.log('          后', GetOutputDir(fileSub));
+        //const renderResult = await ejs.renderFile(fileSub)
+        //fs.writeFileSync(GetOutputDir(fileSub), renderResult)
       }
     })
   })
@@ -47,7 +53,7 @@ inquirer.prompt([
     type: 'input', //type： input, number, confirm, list, checkbox ... 
     name: 'name', // key 名
     message: '请输入项目名称', // 提示信息
-    default: 'my-vue-project' // 默认值
+    default: 'a-project' // 默认值
   }
 ]).then(answers => {
   // 打印互用输入结果
