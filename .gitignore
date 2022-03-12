@@ -1,8 +1,9 @@
+node_modules
 .DS_Store
-node_modules/
-npm-debug.log
-.editorconfig
-dist/
+dist
+dist-ssr
+*.local
+.vscode
 .vs
 .idea
-yarn.lock
+debug.log

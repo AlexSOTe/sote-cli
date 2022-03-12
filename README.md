@@ -1,2 +1,0 @@
-# sote-cli
-sote-cli

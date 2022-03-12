@@ -1,63 +1,126 @@
-#! /usr/bin/env node
-
-// #! 符号的名称叫 Shebang，用于指定脚本的解释程序
-// Node CLI 应用入口文件必须要有这样的文件头
-// 如果是Linux 或者 macOS 系统下还需要修改此文件的读写权限为 755
-// 具体就是通过 chmod 755 cli.js 实现修改
-
-// 用于检查入口文件是否正常执行
-console.log('my-node-cli working~')
-const fs = require('fs')
-const inquirer = require('inquirer')
-const path = require('path')
-const ejs = require('ejs')
+#!/usr/bin/env node
+const inquirer = require('inquirer');
+const Git = require("nodegit");
+const fs = require("fs");
 
 
-//模板文件目录
-const templatesUrl = path.join(__dirname, 'templates');
-console.log('模板文件目录', templatesUrl);
-//生成文件的目录
-let outputDir = ''
-const GetOutputDir = (fileSub) => fileSub.replace('templates', outputDir);
+console.log("欢迎使用大名鼎鼎的无名小卒 sote 的 sote-cli !!");
 
-function IsDirectory(url) {
-  return fs.lstatSync(url).isDirectory()
-}
-function ReadAllFiles(url) {
-  fs.mkdirSync(GetOutputDir(outputDir))
-  //从模板中读取文件
-  fs.readdir(url, (err, files) => {
-    if (err) {
-      return
-    }
-    files.forEach(async file => {
-      const fileSub = path.join(url, file)
-      const outputDir = GetOutputDir(fileSub)
-      if (IsDirectory(fileSub)) { // 是目录
-        fs.mkdirSync(outputDir)
-        console.log('fileSub', fileSub);
-        ReadAllFiles(fileSub)
-      } else { // 不是目录
-        //console.log('file', fileSub);
-        //console.log('----------前', fileSub);
-        //console.log('          后', GetOutputDir(fileSub));
-        //const renderResult = await ejs.renderFile(fileSub)
-        //fs.writeFileSync(GetOutputDir(fileSub), renderResult)
-      }
+
+let projectDir = '';
+
+/**
+ * 克隆远程仓库代码
+ * @param {string} url 源码仓库地址
+ * @param {string} path 要下载的目标路径
+ * @param {Function} cb 下载结束后的回调函数
+ */
+function GitClone(url, path, cb) {
+  console.log("正在下载远程仓库代码...")
+  console.log(url)
+  Git.Clone(url, path)
+    .then(function (res) {
+      console.log("下载完成")
+      cb(true)
     })
+    .catch(function (err) {
+      console.log("下载失败" + err);
+      cb(false)
+    });
+}
+
+/**
+ * 获取指定目录下所有文件
+ */
+function GetAllProjectFilePath(path) {
+  const fileList = [];
+  const isDirectory = fs.statSync(path).isDirectory();
+  if (isDirectory) {
+    let dirs = fs.readdirSync(path);
+    const excludeFileArr = ['.git', '.vs', '.vscode', '.idea', 'README.md'];
+    dirs = dirs.filter(v => !excludeFileArr.includes(v));
+    dirs.forEach(v => {
+      fileList.push(...GetAllProjectFilePath(`${path}/${v}`));
+    })
+  } else {
+    fileList.push(path);
+  }
+  return fileList;
+}
+
+/**
+ * 获取文件字符串替换
+ * @param {string[]} paths
+ * @param {object} vars
+ */
+function ReplaceFileVars(paths, vars) {
+  let _paths = paths.filter(v => !v.includes('img'));
+  _paths.forEach(path => {
+    let file = fs.readFileSync(path, { encoding: 'utf-8' });
+    for (const key in vars) {
+      console.log(key, vars[key]);
+      const reg = new RegExp(`${key}`, 'i')
+      file = file.replace(reg, vars[key]);
+    }
+    fs.writeFileSync(path, file, { encoding: 'utf-8' });
   })
 }
 
+
 inquirer.prompt([
   {
-    type: 'input', //type： input, number, confirm, list, checkbox ... 
-    name: 'name', // key 名
-    message: '请输入项目名称', // 提示信息
-    default: 'a-project' // 默认值
+    type: "input",
+    name: "sote_cli_project_name",
+    message: "项目名称",
+  },
+  {
+    type: "input",
+    name: "sote_cli_auth_name",
+    message: "作者名称",
+  },
+  {
+    type: "input",
+    name: "sote_cli_auth_email",
+    message: "作者邮箱",
+  },
+  {
+    type: "input",
+    name: "sote_cli_api_url_dev",
+    message: "测试环境api链接",
+  },
+  {
+    type: "input",
+    name: "sote_cli_api_url_staging",
+    message: "预生产环境api链接",
+  },
+  {
+    type: "input",
+    name: "sote_cli_api_url_prod",
+    message: "生产环境api链接",
+  },
+  {
+    type: "input",
+    name: "sote_cli_api_base_url",
+    message: "项目部署的url（eg：xxx、xxx/xxx）",
+  },
+]).then((vars) => {
+  console.log(vars);
+  projectDir = `${__dirname}/${vars.sote_cli_project_name}`;
+  // 已存在项目目录就删除
+  if (fs.existsSync(projectDir)) {
+    fs.rmSync(projectDir, { recursive: true });
   }
-]).then(answers => {
-  // 打印互用输入结果
-  console.log('answers', answers)
-  outputDir = answers.name || 'my-project'
-  ReadAllFiles(templatesUrl)
-})
+  GitClone(
+    'https://github.com/AlexSOTe/sote-quick-start.git',
+    projectDir,
+    (isDone) => {
+      if (isDone) {
+        // 获取项目目录下所有文件
+        const paths = GetAllProjectFilePath(projectDir);
+        ReplaceFileVars(paths, vars);
+      }
+    }
+  )
+});
+// UNDONE 需要删除clone下来的项目的 .git 文件夹
+// UNDONE 源项目一些ts build的时候报的错需要处理变量需要处理
